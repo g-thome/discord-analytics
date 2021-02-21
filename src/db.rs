@@ -1,8 +1,8 @@
-use mongodb::{Client, options::ClientOptions, error::Result };
-use mongodb::bson::doc;
+use mongodb::{Client, options::ClientOptions, error::Result, error::Error };
+use mongodb::bson::{doc, Bson};
 use serenity::http::client::Http;
 
-use crate::models::Message;
+use crate::models::{ Message, ChannelStats };
 
 use std::env;
 
@@ -111,5 +111,26 @@ impl DB {
         }
 
         Ok(())
+    }
+
+    pub async fn channel_stats(&self, channel_id: u64) -> Result<ChannelStats> {
+        let query = doc! { "_id": channel_id};
+        let query_result = self
+                        .mongo_client
+                        .database(DB_NAME)
+                        .collection(CHANNEL_COLLECTION)
+                        .find_one(query, None)
+                        .await
+                        .expect("error trying to query for a channel");
+
+        match query_result {
+            Some(channel) => {
+                let message_count_as_i64 = channel.get_i64("message_count").unwrap();
+                return Ok(ChannelStats {
+                    message_count: message_count_as_i64 as u64
+                })
+            },
+            None => println!("channel not found")
+        }
     }
 }
