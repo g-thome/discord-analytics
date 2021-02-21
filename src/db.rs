@@ -1,8 +1,8 @@
-use mongodb::{Client, options::ClientOptions, error::Result, error::Error };
-use mongodb::bson::{doc, Bson};
+use mongodb::{Client, options::ClientOptions, error::Result as MResult };
+use mongodb::bson::doc;
 use serenity::http::client::Http;
 
-use crate::models::{ Message, ChannelStats };
+use crate::models::{ Message, ChannelStats, GuildStats };
 
 use std::env;
 
@@ -18,7 +18,7 @@ const CHANNEL_COLLECTION: &str = "channels";
 const CONNECTION_STRING: &str = "mongodb://localhost:27017";
 
 impl DB {
-    pub async fn init() -> Result<Self> {
+    pub async fn init() -> MResult<Self> {
         let mut options = ClientOptions::parse(CONNECTION_STRING).await?;
         options.app_name = Some("discord-analytics".to_string());
 
@@ -32,7 +32,7 @@ impl DB {
         })
     }
 
-    pub async fn add_message(&self, entry: Message) -> Result<()> {        
+    pub async fn add_message(&self, entry: Message) -> MResult<()> {        
         let doc = doc! {
             "author_id": entry.author_id,
             "channel_id": entry.channel_id,
@@ -113,7 +113,7 @@ impl DB {
         Ok(())
     }
 
-    pub async fn channel_stats(&self, channel_id: u64) -> Result<ChannelStats> {
+    pub async fn channel_stats(&self, channel_id: u64) -> Result<ChannelStats, &str> {
         let query = doc! { "_id": channel_id};
         let query_result = self
                         .mongo_client
@@ -130,28 +130,28 @@ impl DB {
                     message_count: message_count_as_i64 as u64
                 })
             },
-            None => println!("channel not found")
+            None => Err("channel not found")
         }
     }
 
-    pub async fn guild_stats(&self, guild_id: u64) -> Result<ChannelStats> {
+    pub async fn guild_stats(&self, guild_id: u64) -> Result<GuildStats, &str> {
         let query = doc! { "_id": guild_id };
         let query_result = self
                         .mongo_client
                         .database(DB_NAME)
-                        .collection(CHANNEL_COLLECTION)
+                        .collection(GUILD_COLLECTION)
                         .find_one(query, None)
                         .await
-                        .expect("error trying to query for a channel");
+                        .expect("error trying to query for a guild");
 
         match query_result {
             Some(guild) => {
-                let message_count_as_i64 = guild.get_i64("message_count").unwrap();
-                return Ok(ChannelStats {
-                    message_count: message_count_as_i64 as u64
+                let message_count_as_i32 = guild.get_i32("message_count").unwrap();
+                return Ok(GuildStats {
+                    message_count: message_count_as_i32 as u64
                 })
             },
-            None => println!("guild not found")
+            None => Err("guild not found")
         }
     }
 }

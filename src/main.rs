@@ -1,3 +1,4 @@
+use serenity::prelude::TypeMapKey;
 use serenity::async_trait;
 use serenity::client::{Client, Context, EventHandler};
 use serenity::model::channel::{Message as DiscordMessage, MessageType};
@@ -22,16 +23,20 @@ mod db;
 mod models;
 
 #[group]
-#[commands(ping)]
+#[commands(ping, stat)]
 struct General;
 
-struct Handler {
-    db: db::DB
+struct Handler;
+
+// struct MongoConnection;
+
+impl TypeMapKey for DB {
+    type Value = DB;
 }
 
 #[async_trait]
 impl EventHandler for Handler {
-    async fn message(&self, _ctx: Context, message: DiscordMessage) {
+    async fn message(&self, ctx: Context, message: DiscordMessage) {
         if (message.kind != MessageType::Regular) {
             return;
         }
@@ -48,19 +53,22 @@ impl EventHandler for Handler {
             None => panic!("not found guild id")
         }
 
-        let insert = self.db.add_message(Message {
-            _id: id,
-            author_id: aid,
-            channel_id: cid,
-            guild_id: gid,
-            text: txt,
-            timestamp: ts
-        }).await;
-
-        match insert {
-            Ok(_) => println!("successfully inserted a new document"),
-            Err(e) => println!("error on insertion {}", e)
-        }
+        let data = ctx.data.read().await;
+        if let Some(db) = data.get::<DB>() {
+            let insert = db.add_message(Message {
+                _id: id,
+                author_id: aid,
+                channel_id: cid,
+                guild_id: gid,
+                text: txt,
+                timestamp: ts
+            }).await;
+    
+            match insert {
+                Ok(_) => println!("successfully inserted a new document"),
+                Err(e) => println!("error on insertion {}", e)
+            }
+        }        
     }
 }
 
@@ -73,8 +81,18 @@ async fn ping(ctx: &Context, msg: &DiscordMessage) -> CommandResult {
 
 #[command]
 async fn stat(ctx: &Context, msg: &DiscordMessage) -> CommandResult {
-    let msg_count = 10;
-    msg.reply(ctx, format!("this guild has {} messages ", msg_count.to_string()));
+    let data = ctx.data.read().await;
+    let db = data.get::<DB>().unwrap();
+
+    match msg.guild_id {
+        Some(guild_id) => {
+            let stats = db.guild_stats(guild_id.0).await.expect("something went wrong");
+            msg.reply(ctx, format!("this server has {} messages", stats.message_count)).await;
+        },
+        None => {
+            panic!("something went wrong");
+        }
+    }
 
     Ok(())
 }
@@ -90,15 +108,18 @@ async fn main() {
     // Login with a bot token from the environment
     let token = env::var("DISCORD_TOKEN").expect("token");
 
-    let event_handler = Handler {
-        db: DB::init().await.expect("could not connect to database")
-    };
-
     let mut client = Client::builder(token)
-        .event_handler(event_handler)
+        .event_handler(Handler)
         .framework(framework)
         .await
         .expect("Error creating client");
+
+    let db = DB::init().await.unwrap();
+    
+    {
+        let mut data = client.data.write().await;
+        data.insert::<DB>(db);
+    }
 
     // start listening for events by starting a single shard
     if let Err(why) = client.start().await {
