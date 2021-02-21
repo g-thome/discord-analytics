@@ -134,8 +134,8 @@ impl DB {
         }
     }
 
-    pub async fn guild_stats(&self, channel_id: u64) -> Result<ChannelStats> {
-        let query = doc! { "_id": channel_id};
+    pub async fn guild_stats(&self, guild_id: u64) -> Result<ChannelStats> {
+        let query = doc! { "_id": guild_id };
         let query_result = self
                         .mongo_client
                         .database(DB_NAME)
