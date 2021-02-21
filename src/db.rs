@@ -133,4 +133,25 @@ impl DB {
             None => println!("channel not found")
         }
     }
+
+    pub async fn guild_stats(&self, channel_id: u64) -> Result<ChannelStats> {
+        let query = doc! { "_id": channel_id};
+        let query_result = self
+                        .mongo_client
+                        .database(DB_NAME)
+                        .collection(CHANNEL_COLLECTION)
+                        .find_one(query, None)
+                        .await
+                        .expect("error trying to query for a channel");
+
+        match query_result {
+            Some(guild) => {
+                let message_count_as_i64 = guild.get_i64("message_count").unwrap();
+                return Ok(ChannelStats {
+                    message_count: message_count_as_i64 as u64
+                })
+            },
+            None => println!("guild not found")
+        }
+    }
 }

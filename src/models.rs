@@ -13,11 +13,15 @@ pub struct Channel {
     pub message_count: u64,
 }
 
+pub struct ChannelStats {
+    pub message_count: u64
+}
+
 pub struct Guild {
     pub _id: u64,
     pub message_count: u64,
 }
 
-pub struct ChannelStats {
+pub struct GuildStats {
     pub message_count: u64
 }
