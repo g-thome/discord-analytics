@@ -7,8 +7,7 @@ use serenity::framework::standard::{
     macros::{
         command,
         group
-    },
-    Args
+    }
 };
 
 use dotenv::dotenv;
@@ -46,7 +45,7 @@ impl EventHandler for Handler {
 
         match message.guild_id {
             Some(guild_id) => gid = guild_id.0,
-            None => panic!("guild id not found")
+            None => panic!("not found guild id")
         }
 
         let insert = self.db.add_message(Message {
@@ -68,6 +67,14 @@ impl EventHandler for Handler {
 #[command]
 async fn ping(ctx: &Context, msg: &DiscordMessage) -> CommandResult {
     msg.reply(ctx, "Pong!").await?;
+
+    Ok(())
+}
+
+#[command]
+async fn stat(ctx: &Context, msg: &DiscordMessage) -> CommandResult {
+    let msg_count = 10;
+    msg.reply(ctx, format!("this guild has {} messages ", msg_count.to_string()));
 
     Ok(())
 }
