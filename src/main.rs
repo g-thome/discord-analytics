@@ -7,7 +7,8 @@ use serenity::framework::standard::{
     macros::{
         command,
         group
-    }
+    },
+    Args
 };
 
 use dotenv::dotenv;
@@ -35,16 +36,26 @@ impl EventHandler for Handler {
         if (message.kind != MessageType::Regular) {
             return;
         }
+        
+        let id = message.id.0;
+        let aid = message.author.id.0;
+        let cid = message.channel_id.0;
+        let txt = message.content.to_string();
+        let ts = message.timestamp.to_rfc3339();
+        let gid;
 
-        let user_id = message.author.id;
-        let channel_id = message.channel_id;
-        let txt = message.content;
+        match message.guild_id {
+            Some(guild_id) => gid = guild_id.0,
+            None => panic!("guild id not found")
+        }
 
         let insert = self.db.add_message(Message {
-            author_id: user_id.to_string(),
-            channel_id: channel_id.to_string(),
-            text: txt.to_string(),
-            timestamp: message.timestamp.to_rfc3339()
+            _id: id,
+            author_id: aid,
+            channel_id: cid,
+            guild_id: gid,
+            text: txt,
+            timestamp: ts
         }).await;
 
         match insert {
